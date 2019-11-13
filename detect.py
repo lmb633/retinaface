@@ -81,11 +81,11 @@ def detect(image_path):
     # dets = dets[:args.keep_top_k, :]
     # landms = landms[:args.keep_top_k, :]
 
-    dets = np.concatenate((dets, landms), axis=1)
-    dets = [det for det in dets if det[4] > args.vis_thres]
-    print(len(dets))
-    image_show(img_raw, dets)
-    return dets
+    dets = [list(det) for det in dets if det[4] > args.vis_thres]
+    print(dets, landms)
+    # dets = np.concatenate((dets, landms), axis=1)
+    # image_show(img_raw, dets)
+    return dets, landms
 
 
 def image_show(img_raw, dets):
