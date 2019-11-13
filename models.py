@@ -1,13 +1,40 @@
 import torch
 import torch.nn as nn
-import torchvision.models.detection.backbone_utils as backbone_utils
-import torchvision.models._utils as _utils
-import torch.nn.functional as F
 from collections import OrderedDict
+# import torchvision.models._utils as _utils
+import torch.nn.functional as F
 
 from net import MobileNetV1 as MobileNetV1
 from net import FPN as FPN
 from net import SSH as SSH
+
+
+class IntermediateLayerGetter(nn.ModuleDict):
+    def __init__(self, model, return_layers):
+        if not set(return_layers).issubset([name for name, _ in model.named_children()]):
+            raise ValueError("return_layers are not present in model")
+
+        orig_return_layers = return_layers
+        return_layers = {k: v for k, v in return_layers.items()}
+        layers = OrderedDict()
+        for name, module in model.named_children():
+            layers[name] = module
+            if name in return_layers:
+                del return_layers[name]
+            if not return_layers:
+                break
+
+        super(IntermediateLayerGetter, self).__init__(layers)
+        self.return_layers = orig_return_layers
+
+    def forward(self, x):
+        out = OrderedDict()
+        for name, module in self.named_children():
+            x = module(x)
+            if name in self.return_layers:
+                out_name = self.return_layers[name]
+                out[out_name] = x
+        return out
 
 
 class ClassHead(nn.Module):
@@ -56,7 +83,7 @@ class RetinaFace(nn.Module):
         super(RetinaFace, self).__init__()
         self.phase = phase
         backbone = MobileNetV1()
-        self.body = _utils.IntermediateLayerGetter(backbone, cfg['return_layers'])
+        self.body = IntermediateLayerGetter(backbone, cfg['return_layers'])
         in_channels_stage2 = cfg['in_channel']
         in_channels_list = [
             in_channels_stage2 * 2,
@@ -112,3 +139,8 @@ class RetinaFace(nn.Module):
         else:
             output = (bbox_regressions, F.softmax(classifications, dim=-1), ldm_regressions)
         return output
+
+
+import torchvision
+
+print(torchvision.__version__)
